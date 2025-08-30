@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Utilidades */
+:root { --radius: 1.25rem; }
+
+/* Si NO tienes tokens custom en tailwind.config, usa clases estándar */
+.container-section { @apply container max-w-6xl px-4; }
+.card { @apply rounded-2xl shadow-lg border border-neutral-200/60 dark:border-neutral-800/60 bg-white/70 dark:bg-neutral-900/60 backdrop-blur; }
+.btn { @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 font-medium transition; }
+/* Cambié bg-brand por un azul estándar */
+.btn-primary { @apply btn bg-blue-600 text-white hover:bg-blue-700; }
+.btn-ghost { @apply btn bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800; }
+.badge { @apply inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800; }
+.title { @apply text-3xl md:text-4xl font-bold tracking-tight; }
+.subtitle { @apply text-neutral-600 dark:text-neutral-400; }
+
+/* Ocultar scrollbar (carrusel) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ==== Carrusel suave, infinito ==== */
+@keyframes scroll-x {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); } /* recorre media tira porque está duplicada */
+}
+
+.carousel-track {
+  display: flex;
+  width: max-content;
+  animation-name: scroll-x;          /* nombre fijo */
+  animation-timing-function: linear; /* movimiento constante, muy suave */
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+/* Pausa al hover sobre el contenedor con clase .group */
+.group:hover .carousel-track {
+  animation-play-state: paused;
+}
+
+/* Desvanecer bordes (opcional para look pro) */
+.carousel-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+
+/* Respeta reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .carousel-track { animation: none; }
+}

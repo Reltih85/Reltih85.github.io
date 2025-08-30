@@ -1,0 +1,25 @@
+# Dependencias
+node_modules/
+dist/
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build cache
+*.tsbuildinfo
+*.cache
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.sw?
+Thumbs.db
+
+# Env files (no subir claves privadas)
+.env
+.env.*
