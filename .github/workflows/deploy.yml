@@ -2,7 +2,7 @@ name: Deploy Vite to GitHub Pages
 
 on:
   push:
-    branches: [master, main]   # <- incluye master
+    branches: [master, main]
   workflow_dispatch:
 
 permissions:
@@ -32,6 +32,10 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # 👇 SPA fallback: usar el index compilado como 404.html para rutas del router
+      - name: SPA fallback (copy dist/index.html to dist/404.html)
+        run: cp dist/index.html dist/404.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
