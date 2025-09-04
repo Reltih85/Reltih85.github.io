@@ -10,6 +10,7 @@ import Contact from './pages/Contact'
 import QRGenerator from './pages/apps/QRGenerator'
 import RemoveBg from './pages/apps/RemoveBg'
 import VideoTools from './pages/apps/VideoTools'
+import KanbanApp from '@/apps/kanban';
 
 
 createRoot(document.getElementById('root')).render(
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="apps/qr" element={<QRGenerator />} />
           <Route path="apps/remove-bg" element={<RemoveBg />} />
           <Route path="apps/video-tools" element={<VideoTools />} />
+          <Route path="apps/kanban" element={<KanbanApp />} />
           <Route path="contact" element={<Contact />} />
         </Route>
       </Routes>

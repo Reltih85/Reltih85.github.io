@@ -19,5 +19,12 @@ export default [
     description: 'Descarga/convierte (backend aparte por TOS).',
     tags: ['video'],
     path: '/apps/video-tools'
-  }
+  },
+  {
+  slug: 'kanban',
+  title: 'Mini SCRUM / Kanban',
+  description: 'Crea proyectos y organiza tareas en columnas..',
+  path: '/apps/kanban',
+  tags: ['productividad', 'sin backend'],
+}
 ]
