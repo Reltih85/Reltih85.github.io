@@ -1,16 +1,14 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>Redirecting…</title>
-    <script>
-      // Guarda la URL real y redirige a /
-      (function(l) {
-        var p = l.pathname + l.search + l.hash;
-        sessionStorage.redirect = p;
-        l.replace("/");
-      })(window.location);
-    </script>
-  </head>
-  <body>Redirecting…</body>
+<head>
+  <meta charset="utf-8" />
+  <title>Redirecting…</title>
+  <meta http-equiv="refresh" content="0; url=/" />
+  <script>
+    // guarda la ruta original y vuelve al inicio
+    sessionStorage.redirect = location.href;
+    location.replace("/");
+  </script>
+</head>
+<body></body>
 </html>
