@@ -1,7 +1,6 @@
 # Dependencias
 node_modules/
 dist/
-*.local
 
 # Logs
 npm-debug.log*
@@ -12,6 +11,7 @@ pnpm-debug.log*
 # Build cache
 *.tsbuildinfo
 *.cache
+.eslintcache
 
 # Editor / OS
 .vscode/
@@ -19,7 +19,18 @@ pnpm-debug.log*
 .DS_Store
 *.sw?
 Thumbs.db
+desktop.ini
+Icon?
 
 # Env files (no subir claves privadas)
 .env
+.env.local
+.env.*.local
 .env.*
+
+# Firebase (si llegas a usar CLI/Hosting)
+.firebase/
+firebase-debug.log*
+
+# Tests
+coverage/

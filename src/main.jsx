@@ -11,7 +11,7 @@ import QRGenerator from './pages/apps/QRGenerator'
 import RemoveBg from './pages/apps/RemoveBg'
 import VideoTools from './pages/apps/VideoTools'
 import KanbanApp from '@/apps/kanban';
-
+import "./lib/firebase";
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
