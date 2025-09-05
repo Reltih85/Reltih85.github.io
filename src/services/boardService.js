@@ -16,13 +16,13 @@ import {
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "../lib/firebase";
 
-/** Devuelve el UID actual; espera a que Auth esté listo si hace falta */
+/** Espera un uid listo (auth anónima incluida) */
 async function getUid() {
   if (auth.currentUser?.uid) return auth.currentUser.uid;
   return await new Promise((resolve) => {
-    const off = onAuthStateChanged(auth, (user) => {
+    const off = onAuthStateChanged(auth, (u) => {
       off();
-      resolve(user?.uid || null);
+      resolve(u?.uid || null);
     });
   });
 }
@@ -32,7 +32,7 @@ export async function createBoard(name) {
   const uid = await getUid();
   const boardRef = doc(collection(db, "boards"));
   await setDoc(boardRef, {
-    name: name || "Mi Kanban",
+    name: name || "Proyecto",
     ownerUid: uid || null,
     members: uid ? [uid] : [],
     createdAt: serverTimestamp(),
@@ -41,14 +41,14 @@ export async function createBoard(name) {
   return boardRef.id;
 }
 
-/** Auto-join: agrega al usuario actual a members (idempotente) */
+/** Auto-join: agrega al usuario a members (idempotente) */
 export async function joinBoard(boardId) {
   const uid = await getUid();
   if (!uid || !boardId) return;
   await updateDoc(doc(db, "boards", boardId), { members: arrayUnion(uid) });
 }
 
-/** Escucha en tiempo real las listas del board */
+/** Realtime: listas del board */
 export function listenLists(boardId, cb) {
   const q = query(
     collection(db, "boards", boardId, "lists"),
@@ -59,7 +59,7 @@ export function listenLists(boardId, cb) {
   );
 }
 
-/** Escucha en tiempo real las tarjetas del board */
+/** Realtime: tarjetas del board */
 export function listenCards(boardId, cb) {
   const q = query(
     collection(db, "boards", boardId, "cards"),
@@ -70,7 +70,7 @@ export function listenCards(boardId, cb) {
   );
 }
 
-/** Crea una lista */
+/** Crear lista */
 export async function createList(boardId, title, order = 1024) {
   await addDoc(collection(db, "boards", boardId, "lists"), {
     title: title || "Nueva lista",
@@ -79,14 +79,8 @@ export async function createList(boardId, title, order = 1024) {
   });
 }
 
-/** Crea una tarjeta */
-export async function createCard(
-  boardId,
-  listId,
-  title,
-  order = 1024,
-  description = ""
-) {
+/** Crear tarjeta */
+export async function createCard(boardId, listId, title, order = 1024, description = "") {
   await addDoc(collection(db, "boards", boardId, "cards"), {
     title: title || "Nueva tarjeta",
     description,
@@ -96,7 +90,7 @@ export async function createCard(
   });
 }
 
-/** Actualiza la posición (y/o lista) de una tarjeta */
+/** Mover tarjeta / cambiar orden */
 export async function updateCardPosition(boardId, cardId, toListId, newOrder) {
   const ref = doc(db, "boards", boardId, "cards", cardId);
   await updateDoc(ref, {
@@ -106,7 +100,7 @@ export async function updateCardPosition(boardId, cardId, toListId, newOrder) {
   });
 }
 
-/** Obtiene las tarjetas de una lista (lectura única, no realtime) */
+/** Lectura única: tarjetas de una lista */
 export async function getCardsByList(boardId, listId) {
   const q = query(
     collection(db, "boards", boardId, "cards"),
@@ -115,4 +109,20 @@ export async function getCardsByList(boardId, listId) {
   );
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/** Mapear nombre de proyecto → boardId (no guarda datos, solo el id) */
+export async function getOrCreateBoardIdByName(name) {
+  const key = `boardId:${name}`;
+  let id = localStorage.getItem(key);
+  if (id) return id;
+
+  id = await createBoard(name || "Proyecto");
+  // semillas
+  await createList(id, "To Do", 1024);
+  await createList(id, "In Progress", 2048);
+  await createList(id, "Done", 3072);
+
+  localStorage.setItem(key, id);
+  return id;
 }
