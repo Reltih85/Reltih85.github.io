@@ -12,6 +12,8 @@ import RemoveBg from './pages/apps/RemoveBg'
 import VideoTools from './pages/apps/VideoTools'
 import KanbanApp from '@/apps/kanban';
 import "./lib/firebase";
+import KanbanFireTest from "@/pages/KanbanFireTest";
+
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -24,6 +26,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="apps/qr" element={<QRGenerator />} />
           <Route path="apps/remove-bg" element={<RemoveBg />} />
           <Route path="apps/video-tools" element={<VideoTools />} />
+          <Route path="/fire" element={<KanbanFireTest />} />
           <Route path="apps/kanban" element={<KanbanApp />} />
           <Route path="contact" element={<Contact />} />
         </Route>
