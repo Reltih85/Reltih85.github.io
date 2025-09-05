@@ -1,27 +1,31 @@
-import { useEffect, useState } from "react";
+// src/components/PingFirestore.jsx
+import { useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 export default function PingFirestore() {
-  const [status, setStatus] = useState("Esperando…");
-
   useEffect(() => {
     const off = onAuthStateChanged(auth, async (user) => {
-      if (!user) return setStatus("Sin usuario (auth falló)");
+      if (!user) return; // si Auth fallara, no hace nada
       try {
-        const ref = await addDoc(collection(db, "debug"), {
-          uid: user.uid,
-          at: serverTimestamp(),
+        // Escribe en /boards (ruta que tus rules SÍ permiten "create" con usuario autenticado)
+        const ref = doc(collection(db, "boards"));
+        await setDoc(ref, {
+          name: "__ping__",
+          ownerUid: user.uid,
+          members: [user.uid],
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          _test: true,
         });
-        setStatus("OK Firestore: " + ref.id);
+        console.log("Firestore OK. Doc:", ref.id);
       } catch (e) {
-        setStatus("Error: " + (e?.code || e?.message));
-        console.error(e);
+        console.error("Ping Firestore error:", e);
       }
     });
     return () => off();
   }, []);
 
-  return <div style={{ padding: 8, fontSize: 12 }}>Ping: {status}</div>;
+  return null; // 👈 nada en la UI
 }
