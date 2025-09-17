@@ -1,17 +1,10 @@
 import {
-  addDoc, collection, doc, getDoc, onSnapshot, orderBy, query,
-  serverTimestamp, setDoc, updateDoc, arrayUnion, deleteDoc
+  addDoc, collection, doc, getDoc, onSnapshot, query, orderBy,
+  serverTimestamp, setDoc, updateDoc, deleteDoc, getDocs
 } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
-import { db, auth } from "../lib/firebase";
+import { db } from "../lib/firebase";
 
-/* ---------------- helpers ---------------- */
-async function getUid() {
-  if (auth.currentUser?.uid) return auth.currentUser.uid;
-  return await new Promise((res) => {
-    const off = onAuthStateChanged(auth, (u) => { off(); res(u?.uid || null); });
-  });
-}
+/* --- helpers de contraseña (opcional) --- */
 function randomSalt(n = 16) {
   const abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let s = "";
@@ -24,11 +17,23 @@ async function sha256Hex(text) {
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-/* ------------- Boards (colección: boards) ------------- */
+/* -------- BOARDS (colección: boards) -------- */
 export function listenBoards(cb) {
-  const q = query(collection(db, "boards"), orderBy("createdAt", "desc"));
-  return onSnapshot(q, (snap) => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  // sin orderBy en Firestore; ordenamos en cliente para evitar parpadeos
+  const q = query(collection(db, "boards"));
+  return onSnapshot(q, (snap) => {
+    const items = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((b) => b?.name !== "_ping_")
+      .sort((a, b) => {
+        const ta = (a.updatedAt?.toMillis?.() ?? a.createdAt?.toMillis?.() ?? 0);
+        const tb = (b.updatedAt?.toMillis?.() ?? b.createdAt?.toMillis?.() ?? 0);
+        return tb - ta; // más reciente primero
+      });
+    cb(items);
+  });
 }
+
 
 /** Asegura las 3 listas con IDs fijos (idempotente) */
 export async function ensureDefaultLists(boardId) {
@@ -41,40 +46,61 @@ export async function ensureDefaultLists(boardId) {
     await setDoc(
       doc(db, "boards", boardId, "lists", l.id),
       { title: l.title, order: l.order, createdAt: serverTimestamp() },
-      { merge: true } // no duplica; solo asegura
+      { merge: true }  // no duplica
     );
   }
 }
 
 export async function createBoardWithPassword(name, password = "") {
-  const uid = await getUid();
-  const ref = doc(collection(db, "boards"));
-  const salt = password ? randomSalt(16) : null;
-  const passwordHash = password ? await sha256Hex(`${salt}${password}`) : null;
+  const cleanName = (name || "").trim();
+  if (!cleanName) throw new Error("El proyecto necesita un nombre.");
+  if (cleanName === "_ping_") throw new Error("El nombre '_ping_' está reservado.");
 
-  await setDoc(ref, {
-    name: name || "Proyecto",
-    ownerUid: uid || null,
-    members: uid ? [uid] : [],
-    locked: !!password,
-    passwordSalt: salt,
-    passwordHash,
+  const ref = doc(collection(db, "boards"));
+
+  const hasPwd = !!(password && password.trim());
+
+  const payload = {
+    name: cleanName,
+    locked: hasPwd,                    // público si false, privado si true
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  };
 
-  // 👇 listas fijas
+  if (hasPwd) {
+    const salt = randomSalt(16);
+    const hash = await sha256Hex(`${salt}${password}`);
+    payload.passwordSalt = salt;
+    payload.passwordHash = hash;
+  }
+
+  await setDoc(ref, payload);
   await ensureDefaultLists(ref.id);
-
   return ref.id;
 }
 
+
 export async function renameBoard(boardId, newName) {
-  await updateDoc(doc(db, "boards", boardId), { name: newName, updatedAt: serverTimestamp() });
+  const clean = (newName || "").trim();
+  if (!clean || clean === "_ping_") return;
+  await updateDoc(doc(db, "boards", boardId), {
+    name: clean,
+    updatedAt: serverTimestamp(),
+  });
 }
+
 export async function deleteBoardHard(boardId) {
+  const listsSnap = await getDocs(collection(db, "boards", boardId, "lists"));
+  for (const d of listsSnap.docs) {
+    await deleteDoc(doc(db, "boards", boardId, "lists", d.id));
+  }
+  const cardsSnap = await getDocs(collection(db, "boards", boardId, "cards"));
+  for (const d of cardsSnap.docs) {
+    await deleteDoc(doc(db, "boards", boardId, "cards", d.id));
+  }
   await deleteDoc(doc(db, "boards", boardId));
 }
+
 export async function checkBoardPassword(boardId, password) {
   const snap = await getDoc(doc(db, "boards", boardId));
   const data = snap.data();
@@ -82,13 +108,8 @@ export async function checkBoardPassword(boardId, password) {
   const hash = await sha256Hex(`${data.passwordSalt || ""}${password}`);
   return hash === data.passwordHash;
 }
-export async function joinBoard(boardId) {
-  const uid = await getUid();
-  if (!uid || !boardId) return;
-  await updateDoc(doc(db, "boards", boardId), { members: arrayUnion(uid) });
-}
 
-/* ------------- Listas y Tarjetas ------------- */
+/* -------- LISTS & CARDS -------- */
 export function listenLists(boardId, cb) {
   const q = query(collection(db, "boards", boardId, "lists"), orderBy("order", "asc"));
   return onSnapshot(q, (snap) => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -98,11 +119,10 @@ export function listenCards(boardId, cb) {
   return onSnapshot(q, (snap) => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
 }
 export async function createList(boardId, title, order = 1024) {
-  await addDoc(collection(db, "boards", boardId, "lists"), {
-    title: title || "Nueva lista",
-    order,
-    createdAt: serverTimestamp(),
-  });
+  await setDoc(
+    doc(collection(db, "boards", boardId, "lists")),
+    { title: title || "Nueva lista", order, createdAt: serverTimestamp() }
+  );
 }
 export async function createCard(
   boardId, listId, title, order = 1024, description = "", hours = 0, assignee = ""
@@ -129,16 +149,11 @@ export async function deleteCard(boardId, cardId) {
   await deleteDoc(doc(db, "boards", boardId, "cards", cardId));
 }
 
-/* ------------- Util ------------- */
+/* -------- Alias (compatibilidad) -------- */
 export async function getOrCreateBoardIdByName(name) {
-  const key = `boardId:${name}`;
-  let id = localStorage.getItem(key);
-  if (id) return id;
-  id = await createBoardWithPassword(name, "");
-  localStorage.setItem(key, id);
+  const id = await createBoardWithPassword(name, "");
   return id;
 }
-/** Alias para compatibilidad con código viejo */
 export async function createBoard(name) {
   return createBoardWithPassword(name, "");
 }

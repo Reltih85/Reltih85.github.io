@@ -75,31 +75,36 @@ export default function Board() {
       </div>
 
       {/* Formulario superior */}
-      <div className="mt-6 grid gap-3">
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <input
-          className="input-plain"
+          className="input-plain w-full"
           placeholder="Título de la tarea..."
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
+
         <input
-          className="input-plain"
+          className="input-plain w-full"
           placeholder="Horas"
           type="number"
           value={hours}
           onChange={(e) => setHours(Number(e.target.value))}
         />
+
         <input
-          className="input-plain"
+          className="input-plain w-full sm:col-span-2 lg:col-span-1"
           placeholder="Responsable"
           value={assignee}
           onChange={(e) => setAssignee(e.target.value)}
         />
-        <button className="btn-soft-elev" onClick={addTask}>Añadir tarea</button>
+
+        <button className="btn-soft-elev w-full lg:w-auto justify-self-start" onClick={addTask}>
+          Añadir tarea
+        </button>
       </div>
 
       {/* Tres columnas fijas, responsive */}
-      <div className="mt-8 grid gap-6 md:grid-cols-3">
+      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {LAYOUT.map((col, idx) => (
           <Column
             key={col.id}
@@ -141,7 +146,7 @@ function Column({
   onMoveRight: (cardId: string) => void;
 }) {
   return (
-    <section className="glass-strong rounded-xl p-4">
+    <section className="glass-strong rounded-xl p-4 min-w-0">
       <header className="flex items-center gap-2 mb-3">
         <h2 className="font-semibold">{title}</h2>
         <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-600/20 px-2 text-xs">
@@ -151,34 +156,45 @@ function Column({
 
       <div className="flex flex-col gap-3">
         {cards.map((c) => (
-          <article key={c.id} className="rounded-xl bg-sky-900/40 p-4">
+          <article key={c.id} className="rounded-xl bg-sky-900/40 p-4 min-w-0">
             <div className="font-semibold mb-3">{c.title}</div>
 
-            <div className="grid gap-2 md:grid-cols-2 mb-3">
-              <div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 mb-3 min-w-0">
+              <div className="min-w-0">
                 <label className="text-xs opacity-70 block mb-1">Horas</label>
                 <input
-                  className="input-plain"
+                  className="input-plain w-full"
                   type="number"
                   value={typeof c.hours === "number" ? c.hours : 0}
                   onChange={(e) => onEdit(c.id, { hours: Number(e.target.value) })}
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="text-xs opacity-70 block mb-1">Responsable</label>
                 <input
-                  className="input-plain"
+                  className="input-plain w-full"
                   value={c.assignee || ""}
                   onChange={(e) => onEdit(c.id, { assignee: e.target.value })}
                 />
               </div>
             </div>
 
-            <div className="flex gap-2">
-              {hasPrev && <button className="btn-soft-primary" onClick={() => onMoveLeft(c.id)}>‹ Mover</button>}
-              {hasNext && <button className="btn-soft-primary" onClick={() => onMoveRight(c.id)}>Mover ›</button>}
-              <button className="btn-soft-danger ml-auto" onClick={() => onDelete(c.id)}>Borrar</button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              {hasPrev && (
+                <button className="btn-soft-primary w-full sm:w-auto" onClick={() => onMoveLeft(c.id)}>
+                  ‹ Mover
+                </button>
+              )}
+              {hasNext && (
+                <button className="btn-soft-primary w-full sm:w-auto" onClick={() => onMoveRight(c.id)}>
+                  Mover ›
+                </button>
+              )}
+              <button className="btn-soft-danger w-full sm:w-auto sm:ml-auto" onClick={() => onDelete(c.id)}>
+                Borrar
+              </button>
             </div>
+
           </article>
         ))}
       </div>

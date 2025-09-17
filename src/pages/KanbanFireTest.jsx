@@ -1,14 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../lib/firebase";
 import {
-  createBoard,
-  createList,
   createCard,
   listenLists,
   listenCards,
   updateCardPosition,
-  joinBoard,
 } from "../services/boardService";
 
 // Cálculo de order (para insertar entre vecinos)
@@ -20,39 +15,15 @@ function computeOrder(prev, next) {
   return (prev + next) / 2;
 }
 
-export default function KanbanFireTest() {
+
+export default function KanbanFireTest({ initialBoardId = null }) {
   const [boardId, setBoardId] = useState(
-    new URLSearchParams(location.search).get("b")
+    initialBoardId ?? sessionStorage.getItem("boardId") ?? null
   );
   const [lists, setLists] = useState([]);
   const [cards, setCards] = useState([]);
 
-  // 1) Crear board si no hay ?b= en la URL
-  useEffect(() => {
-    (async () => {
-      if (boardId) return;
-      const id = await createBoard("Demo Firestore");
-      // 3 listas base
-      await createList(id, "Por hacer", 1024);
-      await createList(id, "En progreso", 2048);
-      await createList(id, "Hecho", 3072);
-      const url = new URL(location.href);
-      url.searchParams.set("b", id);
-      history.replaceState({}, "", url.toString());
-      setBoardId(id);
-    })();
-  }, [boardId]);
-
-  // 2) Auto-join: agregar al visitante a members del board
-  useEffect(() => {
-    if (!boardId) return;
-    const off = onAuthStateChanged(auth, (user) => {
-      if (user) joinBoard(boardId);
-    });
-    return () => off();
-  }, [boardId]);
-
-  // 3) Suscripciones realtime
+  // Suscripciones realtime SOLO si hay boardId verificado
   useEffect(() => {
     if (!boardId) return;
     const off1 = listenLists(boardId, setLists);
@@ -63,7 +34,7 @@ export default function KanbanFireTest() {
     };
   }, [boardId]);
 
-  // 4) Mapa de tarjetas por lista
+  // Mapa de tarjetas por lista
   const cardsByList = useMemo(() => {
     const map = {};
     for (const c of cards) {
@@ -74,46 +45,57 @@ export default function KanbanFireTest() {
     return map;
   }, [cards]);
 
-  if (!boardId) return <div style={{ padding: 16 }}>Creando tablero…</div>;
+  if (!boardId) {
+    return (
+      <div style={{ padding: 16 }}>
+        Selecciona un proyecto verificado para continuar.
+      </div>
+    );
+  }
+
+  // Orden de listas por su "order" para render
+  const orderedLists = [...lists].sort((a, b) => a.order - b.order);
 
   return (
     <div style={{ padding: 16 }}>
-      <h2>Kanban Firestore (demo) — board: {boardId}</h2>
-      <p>
-        Comparte esta URL con <strong>?b={boardId}</strong> y se sincroniza en
-        otras PCs al instante.
-      </p>
+      <h2>Kanban Firestore</h2>
 
       <div style={{ display: "flex", gap: 16, overflowX: "auto" }}>
-        {lists.sort((a, b) => a.order - b.order).map((list) => (
-          <Column
-            key={list.id}
-            boardId={boardId}
-            list={list}
-            cards={cardsByList[list.id] || []}
-          />
-        ))}
+        {orderedLists.map((list, idx) => {
+          const nextListId = orderedLists[idx + 1]?.id || null;
+          const nextListCards = nextListId ? (cardsByList[nextListId] || []) : [];
+          return (
+            <Column
+              key={list.id}
+              boardId={boardId}
+              list={list}
+              cards={cardsByList[list.id] || []}
+              nextListId={nextListId}
+              nextListCards={nextListCards}
+            />
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function Column({ boardId, list, cards }) {
+function Column({ boardId, list, cards, nextListId, nextListCards }) {
   const [title, setTitle] = useState("");
 
   async function add() {
     if (!title.trim()) return;
-    const prev = cards[cards.length - 1]?.order;
+    const prev = cards[cards.length - 1]?.order ?? null;
     const newOrder = computeOrder(prev, null);
     await createCard(boardId, list.id, title.trim(), newOrder);
     setTitle("");
   }
 
-  // Mover a la siguiente lista (simple)
-  async function moveToNext(card, nextListId) {
-    const nextCards = []; // en esta demo, insertamos al final
-    const prev = nextCards[nextCards.length - 1]?.order;
-    const newOrder = computeOrder(prev, null);
+  // Mover al final de la siguiente lista (si existe), usando SUS tarjetas
+  async function moveToNext(card) {
+    if (!nextListId) return;
+    const prevDest = nextListCards[nextListCards.length - 1]?.order ?? null;
+    const newOrder = computeOrder(prevDest, null);
     await updateCardPosition(boardId, card.id, nextListId, newOrder);
   }
 
@@ -132,19 +114,28 @@ function Column({ boardId, list, cards }) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {cards.map((card) => (
-          <div key={card.id} style={{ background: "#fff", borderRadius: 8, padding: 10, boxShadow: "0 1px 2px rgba(0,0,0,.08)" }}>
+          <div
+            key={card.id}
+            style={{
+              background: "#fff",
+              borderRadius: 8,
+              padding: 10,
+              boxShadow: "0 1px 2px rgba(0,0,0,.08)",
+            }}
+          >
             <div style={{ fontWeight: 600 }}>{card.title}</div>
-            {/* Botón “mover” simple: a la siguiente lista si existe */}
-            <MoveButtons boardId={boardId} currentListId={list.id} card={card} />
+            {nextListId && (
+              <button
+                style={{ marginTop: 6 }}
+                onClick={() => moveToNext(card)}
+                title="Mover a la siguiente lista"
+              >
+                → Mover
+              </button>
+            )}
           </div>
         ))}
       </div>
     </div>
   );
-}
-
-function MoveButtons({ boardId, currentListId, card }) {
-  // Para la demo: ids predecibles por título de lista (en producción, trae las listas del contexto)
-  // Aquí omitimos por simplicidad; en tu Board real, puedes mostrar botones según el orden de listas.
-  return null;
 }
